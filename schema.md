@@ -6,7 +6,7 @@ Draft schema for v1 RepOsitory. Column types are placeholders until database is 
 
 This database is designed to store exercises and exercise data that will enable users to track their progress
 The data is broken into four categories:
-- **User Data** who is using the app ('user').
+- **User Data** who is using the app and their body metrics over time ('user', 'body_metrics').
 - **Reference Data** facts that are always true ('muscles', 'exercises', 'exercise_to_muscle').
 - **Plan Data** workouts designed before they are performed ('program', 'program_day', 'program_day_exercise', 'planned_set').
 - **Tracking Data** what actually happened in a workout ('session', 'session_to_exercise', 'sets').
@@ -18,6 +18,8 @@ More data categories may present themselves as being necessary in future version
 ## Structural Concept
 
 ```
+body_metrics >--+
+                |
 user --< program --< program_day --< program_day_exercise --< planned_set
   |                       :
   |                       : (optional link back to the planned day)
@@ -39,14 +41,35 @@ exercises -----------+  (also referenced by program_day_exercise)
 --| Individual using the app/tracking progress
 
 --| Each row will contain a unique user id and name, username, and a password hash for secure login
---| **NOTE** password security still to be determined
+--| **NOTE** v1 has no login: users pick who they are from a list, and the app is kept private to our own devices.
+--| Login is the top priority for v2; password_hash is unused until then.
 
 | Column | Type | Notes |
 |---|---|---|
 | id | int |Primary key |
 | name | VARCHAR(50) |e.g Blake |
 | username | VARCHAR(50) |e.g. BlakeyBoy | 
-| password_hash | VARCHAR(255) | Hashed password only; the plain password is never stored |
+| password_hash | VARCHAR(255) | v2. Hashed password only; the plain password is never stored |
+| height | DECIMAL(5,2) | Optional |
+| height_unit | VARCHAR(2) | in or cm |
+| goal_weight | DECIMAL(6,2) | Optional |
+| goal_weight_unit | VARCHAR(2) | lb or kg |
+
+### body_metrics
+--| One body measurement entry, e.g. a weigh-in
+
+--| Each row records a user's measurements on a given date, so progress over time is kept
+--| rather than overwritten. Named broadly so other measurements (body fat %, waist)
+--| can be added later as optional columns.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | int | Primary key |
+| user_id | int | Foreign key -> user |
+| date | Date | When the measurement was taken |
+| weight | DECIMAL(6,2) | |
+| weight_unit | VARCHAR(2) | lb or kg |
+| notes | TEXT | Optional context, e.g. "after vacation" |
 
 ### program
 --| A planned workout program, e.g. a purchased or downloaded program, or one the user builds
@@ -216,6 +239,8 @@ exercises -----------+  (also referenced by program_day_exercise)
 - **Plan and log live in separate tables.** If planned targets lived in logged rows, rerunning a program would mean copying from a previous run that already holds results, and sharing a program would mean sharing workout history. Keeping the plan separate makes it reusable and shareable.
 - **Targets are copied into the log when a session starts.** Each logged set keeps both target and performed values, so planned versus actual can be compared set by set.
 - **Programs are one-to-many with users, so `user_id` is a column on program, not a junction table.** Sharing copies a program rather than having many users follow the same row. If that ever changes, a junction table would be needed.
+- **Weight is a history table, not a column on user.** A single current_weight column would be overwritten on every update, losing exactly the progress the app exists to show. Height and goal weight change rarely, so they stay on user.
+- **BMI is not stored.** It is calculated entirely from height and weight, so storing it would duplicate data and could fall out of sync. It can be calculated for display if ever needed; better body composition measures can be added to body_metrics later.
 - **Weeks are a column, not a table.** In real programs weeks are mostly labels; promote to a table if weeks ever need their own details.
 
 ## Open questions
