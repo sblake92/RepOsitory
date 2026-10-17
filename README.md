@@ -27,6 +27,7 @@ The data model already supports these; whether they ship in v1 is still open.
 - Tracking percent of one-rep max (1RM)
 - Exercise videos
 - A muscle map showing which muscles each exercise works
+- Login ability top priority for V2
 
 ## Data model highlights
 
