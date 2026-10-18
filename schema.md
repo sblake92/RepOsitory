@@ -131,6 +131,7 @@ exercises -----------+  (also referenced by program_day_exercise)
 | target_reps | smallint | |
 | target_weight | DECIMAL(6,2) | Optional |
 | weight_unit | VARCHAR(2) | lb or kg |
+| target_rest | time | Optional; planned rest after this set |
 
 ### session
 --| One instance of working out, i.e. Monday Lift
@@ -184,7 +185,8 @@ exercises -----------+  (also referenced by program_day_exercise)
 | performed_weight | DECIMAL(6,2) | What was actually lifted; allows fractional weights, e.g. 22.5 |
 | weight_unit | VARCHAR(2) | lb or kg |
 | rpe | DECIMAL(3,1) | Rate of perceived exertion, 1-10 scale (half steps allowed, e.g. 8.5) |
-| rest | time | Rest after this set |
+| target_rest | time | Optional; copied from planned_set when the session comes from a program |
+| rest | time | Rest actually taken after this set |
 | notes | TEXT | Notes about this set |
 
 ### exercises
