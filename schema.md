@@ -227,6 +227,7 @@ exercises -----------+  (also referenced by program_day_exercise)
 ## Rules
 
 - **The same exercise can appear more than once in a session** (for example, PT squats at the start and regular squats at the end). Do not make `session_id` + `exercise_id` unique in `session_to_exercise`.
+- **A program day can be logged many times** (for example, repeating Day 3 after a bad workout). Do not make `program_day_id` unique in `session`. In v1 the user picks which day to do; suggesting the next day can be derived later from existing sessions, with no schema change.
 - **Pain ratings are optional.** Non-PT sessions can be saved without them.
 - **Every session has an owner.** `session.user_id` is required, whether or not the session came from a program.
 - **Plan tables only hold targets.** Performed values are only ever written to the log (`sets`).
