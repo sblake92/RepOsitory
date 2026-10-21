@@ -1,6 +1,8 @@
 # Data Model
 
-Draft schema for v1 RepOsitory. Column types are placeholders until database is chosen
+Draft schema for v1 RepOsitory. v1 uses SQLite; types are written generically so the design carries over to PostgreSQL later.
+
+**IDs are UUIDs.** Every primary key and foreign key is a UUID (stored as TEXT in SQLite, native UUID in PostgreSQL), so the phone can create records while offline without id conflicts.
 
 ## Overview
 
@@ -46,7 +48,7 @@ exercises -----------+  (also referenced by program_day_exercise)
 
 | Column | Type | Notes |
 |---|---|---|
-| id | int |Primary key |
+| id | UUID |Primary key |
 | name | VARCHAR(50) |e.g Blake |
 | username | VARCHAR(50) |e.g. BlakeyBoy | 
 | password_hash | VARCHAR(255) | v2. Hashed password only; the plain password is never stored |
@@ -64,8 +66,8 @@ exercises -----------+  (also referenced by program_day_exercise)
 
 | Column | Type | Notes |
 |---|---|---|
-| id | int | Primary key |
-| user_id | int | Foreign key -> user |
+| id | UUID | Primary key |
+| user_id | UUID | Foreign key -> user |
 | date | Date | When the measurement was taken |
 | weight | DECIMAL(6,2) | |
 | weight_unit | VARCHAR(2) | lb or kg |
@@ -83,8 +85,8 @@ exercises -----------+  (also referenced by program_day_exercise)
 
 | Column | Type | Notes |
 |---|---|---|
-| id | int |Primary key |
-| user_id | int | Foreign key -> user (owner) |
+| id | UUID |Primary key |
+| user_id | UUID | Foreign key -> user (owner) |
 | name | VARCHAR(255) | e.g. KettleBell
 | focus | VARCHAR(255) | e.g. build muscle, lose weight, gain strength etc |
 | notes | TEXT | Notes about the program |
@@ -98,8 +100,8 @@ exercises -----------+  (also referenced by program_day_exercise)
 
 | Column | Type | Notes |
 |---|---|---|
-| id | int | Primary key |
-| program_id | int | Foreign key -> program |
+| id | UUID | Primary key |
+| program_id | UUID | Foreign key -> program |
 | day_number | smallint | Order of this day in the program (1, 2, 3, ...) |
 | week_number | smallint | Optional; only for week-based programs |
 | notes | TEXT | Notes about this day |
@@ -111,9 +113,9 @@ exercises -----------+  (also referenced by program_day_exercise)
 
 | Column | Type | Notes |
 |---|---|---|
-| id | int | Primary key |
-| program_day_id | int | Foreign key -> program_day |
-| exercise_id | int | Foreign key -> exercises |
+| id | UUID | Primary key |
+| program_day_id | UUID | Foreign key -> program_day |
+| exercise_id | UUID | Foreign key -> exercises |
 | position | smallint | Position of this exercise in the day |
 | is_pt | boolean | Whether this exercise is planned as PT |
 | notes | TEXT | Notes about this exercise in this day |
@@ -125,8 +127,8 @@ exercises -----------+  (also referenced by program_day_exercise)
 
 | Column | Type | Notes |
 |---|---|---|
-| id | int | Primary key |
-| program_day_exercise_id | int | Foreign key -> program_day_exercise |
+| id | UUID | Primary key |
+| program_day_exercise_id | UUID | Foreign key -> program_day_exercise |
 | set_number | smallint | 1, 2, 3, ... |
 | target_reps | smallint | |
 | target_weight | DECIMAL(6,2) | Optional |
@@ -141,9 +143,9 @@ exercises -----------+  (also referenced by program_day_exercise)
 
 | Column | Type | Notes |
 |---|---|---|
-| id | int | Primary key |
-| user_id | int | Foreign key -> user (required; every session has an owner) |
-| program_day_id | int | Optional foreign key -> program_day; empty for one-off sessions |
+| id | UUID | Primary key |
+| user_id | UUID | Foreign key -> user (required; every session has an owner) |
+| program_day_id | UUID | Optional foreign key -> program_day; empty for one-off sessions |
 | date_time | DateTime |When the session happened |
 | pain_before | smallint |Optional, 0-10 |
 | pain_after | smallint |Optional, 0-10 |
@@ -159,9 +161,9 @@ exercises -----------+  (also referenced by program_day_exercise)
 
 | Column | Type | Notes |
 |---|---|---|
-| id | int | Primary key |
-| session_id | int |Foreign key -> sessions |
-| exercise_id | int | Foreign key -> exercises |
+| id | UUID | Primary key |
+| session_id | UUID |Foreign key -> sessions |
+| exercise_id | UUID | Foreign key -> exercises |
 | position | smallint | Position of this exercise in the session |
 | is_pt | boolean | Whether this exercise was done as PT in this session |
 | notes | TEXT | Notes about this exercise in this session |
@@ -176,8 +178,8 @@ exercises -----------+  (also referenced by program_day_exercise)
 
 | Column | Type | Notes |
 |---|---|---|
-| id | int | Primary key |
-| session_to_exercise_id | int |Foreign key → session_to_exercise |
+| id | UUID | Primary key |
+| session_to_exercise_id | UUID |Foreign key → session_to_exercise |
 | set_number | smallint | 1, 2, 3, ... |
 | target_reps | smallint | Optional; copied from planned_set when the session comes from a program |
 | target_weight | DECIMAL(6,2) | Optional; copied from planned_set when the session comes from a program |
@@ -197,7 +199,7 @@ exercises -----------+  (also referenced by program_day_exercise)
 
 | Column | Type | Notes |
 |---|---|---|
-| id | int | Primary key |
+| id | UUID | Primary key |
 | name | VARCHAR(255) | e.g. squat |
 | region | VARCHAR(255) | e.g. lower body |
 
@@ -207,8 +209,8 @@ exercises -----------+  (also referenced by program_day_exercise)
 
 | Column | Type | Notes |
 |---|---|---|
-| exercise_id | int | Foreign key → exercises |
-| muscle_id | int | Foreign key → muscles |
+| exercise_id | UUID | Foreign key → exercises |
+| muscle_id | UUID | Foreign key → muscles |
 | role | undecided | primary or secondary/stabilizer |
 
 ### muscles
@@ -220,7 +222,7 @@ exercises -----------+  (also referenced by program_day_exercise)
 
 | Column | Type | Notes |
 |---|---|---|
-| id | int |Primary key |
+| id | UUID |Primary key |
 | name | VARCHAR(50) |e.g. quads, glutes |
 | region | VARCHAR(50) | e.g. lower body |
 
@@ -244,6 +246,8 @@ exercises -----------+  (also referenced by program_day_exercise)
 - **Programs are one-to-many with users, so `user_id` is a column on program, not a junction table.** Sharing copies a program rather than having many users follow the same row. If that ever changes, a junction table would be needed.
 - **Weight is a history table, not a column on user.** A single current_weight column would be overwritten on every update, losing exactly the progress the app exists to show. Height and goal weight change rarely, so they stay on user.
 - **BMI is not stored.** It is calculated entirely from height and weight, so storing it would duplicate data and could fall out of sync. It can be calculated for display if ever needed; better body composition measures can be added to body_metrics later.
+- **UUIDs instead of auto-numbered ids.** Gym signal is unreliable, so the phone needs to save workouts locally and sync later. With auto-numbered ids, records created offline on different devices could collide; UUIDs can be generated safely on any device. Changing id types after data exists is painful, so this was decided before any tables were built.
+- **SQLite for v1.** Two users is a small load, and moving to PostgreSQL later is manageable as long as the SQL stays standard.
 - **Weeks are a column, not a table.** In real programs weeks are mostly labels; promote to a table if weeks ever need their own details.
 
 ## Open questions

@@ -4,7 +4,20 @@ A personal workout and physical therapy tracker: log every set, track how PT ses
 
 ## Status
 
-Requirements and data design phase. No application code yet.
+Requirements, data design, and tech stack decided. No application code yet.
+
+## Tech stack (v1)
+
+| Layer | Choice | Why |
+|---|---|---|
+| Backend | Python + [FastAPI](https://fastapi.tiangolo.com/) | Both the phone and the computer need the same data, so there is one central API. Also a core learning goal. |
+| Database | [SQLite](https://www.sqlite.org/) | Plenty for two users; can move to [PostgreSQL](https://www.postgresql.org/) later. |
+| App | [React Native](https://reactnative.dev/) with [Expo](https://expo.dev/) | Native app feel from one codebase for iPhone, Android, and web. Builds from Windows, no Mac needed. |
+| Private access | [Tailscale](https://tailscale.com/) | Keeps the app reachable only from our own devices until login exists in v2. |
+
+Platform plan: iPhone for v1, Android for v2. The web version covers building programs on a computer.
+
+Offline: gym signal is unreliable, so ids are UUIDs and the app will save workouts locally and sync when connected. Offline saving is built after the basics work.
 
 ## Planned for v1
 
@@ -19,6 +32,7 @@ Requirements and data design phase. No application code yet.
 ## Planned for v2
 
 - **Login** (top priority), so the app can safely be reachable from anywhere
+- **Android support**
 
 ## Later ideas
 
