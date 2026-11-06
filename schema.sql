@@ -14,6 +14,22 @@ notes TEXT,
 FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+CREATE TABLE equipment(id TEXT PRIMARY KEY NOT NULL,
+name TEXT UNIQUE NOT NULL
+);
+
+CREATE TABLE exercises(id TEXT PRIMARY KEY NOT NULL,
+name TEXT NOT NULL,
+region TEXT,
+default_equipment_id TEXT,
+FOREIGN KEY (default_equipment_id) REFERENCES equipment(id)
+);
+
+CREATE TABLE muscles(id TEXT PRIMARY KEY NOT NULL,
+name TEXT NOT NULL,
+region TEXT
+);
+
 CREATE TABLE program(id TEXT PRIMARY KEY NOT NULL,
 user_id TEXT NOT NULL,
 name TEXT  NOT NULL,
@@ -25,7 +41,7 @@ FOREIGN KEY (user_id) REFERENCES users(id)
 CREATE TABLE program_day(id TEXT PRIMARY KEY NOT NULL,
 program_id TEXT NOT NULL, 
 day_number INTEGER NOT NULL,
-week_number INTEGER NOT NULL,
+week_number INTEGER,
 notes TEXT,
 FOREIGN KEY (program_id) REFERENCES program(id)
 );
@@ -34,8 +50,10 @@ CREATE TABLE program_day_exercise(id TEXT PRIMARY KEY NOT NULL,
 program_day_id TEXT NOT NULL,
 exercise_id TEXT NOT NULL,
 position INTEGER NOT NULL,
-is_pt INTEGER,
+is_pt INTEGER NOT NULL DEFAULT 0,
+equipment_id TEXT,
 notes TEXT,
+FOREIGN KEY (equipment_id) REFERENCES equipment(id),
 FOREIGN KEY(program_day_id) REFERENCES program_day(id),
 FOREIGN KEY(exercise_id) REFERENCES exercises(id)
 );
@@ -66,7 +84,9 @@ session_id TEXT NOT NULL,
 exercise_id TEXT NOT NULL,
 position INTEGER NOT NULL,
 is_pt INTEGER NOT NULL DEFAULT 0,
+equipment_id TEXT NOT NULL,
 notes TEXT,
+FOREIGN KEY(equipment_id) REFERENCES equipment(id),
 FOREIGN KEY(session_id) REFERENCES session(id),
 FOREIGN KEY(exercise_id) REFERENCES exercises(id)
 );
@@ -76,24 +96,14 @@ session_to_exercise_id TEXT NOT NULL,
 set_number INTEGER NOT NULL,
 target_reps INTEGER,
 target_weight REAL,
-performed_reps INTEGER,
-performed_weight REAL,
-weight_unit TEXT,
+performed_reps INTEGER NOT NULL,
+performed_weight REAL NOT NULL,
+weight_unit TEXT NOT NULL,
 rpe REAL,
 target_rest INTEGER,
 rest INTEGER,
 notes TEXT,
 FOREIGN KEY(session_to_exercise_id) REFERENCES session_to_exercise(id)
-);
-
-CREATE TABLE exercises(id TEXT PRIMARY KEY NOT NULL,
-name TEXT NOT NULL,
-region TEXT
-);
-
-CREATE TABLE muscles(id TEXT PRIMARY KEY NOT NULL,
-name TEXT NOT NULL,
-region TEXT
 );
 
 CREATE TABLE exercise_to_muscle(exercise_id TEXT NOT NULL,

@@ -9,7 +9,7 @@ Draft schema for v1 RepOsitory. v1 uses SQLite; types are written generically so
 This database is designed to store exercises and exercise data that will enable users to track their progress
 The data is broken into four categories:
 - **User Data** who is using the app and their body metrics over time ('users', 'body_metrics').
-- **Reference Data** facts that are always true ('muscles', 'exercises', 'exercise_to_muscle').
+- **Reference Data** facts that are always true ('muscles', 'exercises', 'exercise_to_muscle', 'equipment').
 - **Plan Data** workouts designed before they are performed ('program', 'program_day', 'program_day_exercise', 'planned_set').
 - **Tracking Data** what actually happened in a workout ('session', 'session_to_exercise', 'sets').
 
@@ -33,6 +33,8 @@ users --< program --< program_day --< program_day_exercise --< planned_set
 exercises -----------+  (also referenced by program_day_exercise)
     |
     +--< exercise_to_muscle >-- muscles
+
+equipment --< exercises (default), program_day_exercise, session_to_exercise
 ```
 
 `--<` means one-to-many: the left side has many of the right side.
@@ -139,6 +141,7 @@ Other differences to handle when moving to PostgreSQL:
 | id | UUID | Primary key |
 | program_day_id | UUID | Foreign key -> program_day |
 | exercise_id | UUID | Foreign key -> exercises |
+| equipment_id | UUID | Foreign key -> equipment (required; "Bodyweight" when none); prefilled from the exercise's default |
 | position | smallint | Position of this exercise in the day |
 | is_pt | boolean | Whether this exercise is planned as PT |
 | notes | TEXT | Notes about this exercise in this day |
@@ -155,7 +158,7 @@ Other differences to handle when moving to PostgreSQL:
 | set_number | smallint | 1, 2, 3, ... |
 | target_reps | smallint | |
 | target_weight | DECIMAL(6,2) | Optional |
-| weight_unit | VARCHAR(2) | lb or kg |
+| weight_unit | VARCHAR(2) | lb or kg; empty for bodyweight exercises |
 | target_rest | smallint | Optional; planned rest after this set, in seconds |
 
 ### session
@@ -187,6 +190,7 @@ Other differences to handle when moving to PostgreSQL:
 | id | UUID | Primary key |
 | session_id | UUID |Foreign key -> session |
 | exercise_id | UUID | Foreign key -> exercises |
+| equipment_id | UUID | Foreign key -> equipment (required; "Bodyweight" when none); copied from the plan when the session comes from a program, otherwise prefilled from the exercise's default; can be changed |
 | position | smallint | Position of this exercise in the session |
 | is_pt | boolean | Whether this exercise was done as PT in this session |
 | notes | TEXT | Notes about this exercise in this session |
@@ -206,9 +210,9 @@ Other differences to handle when moving to PostgreSQL:
 | set_number | smallint | 1, 2, 3, ... |
 | target_reps | smallint | Optional; copied from planned_set when the session comes from a program |
 | target_weight | DECIMAL(6,2) | Optional; copied from planned_set when the session comes from a program |
-| performed_reps | smallint | What was actually done |
-| performed_weight | DECIMAL(6,2) | What was actually lifted; allows fractional weights, e.g. 22.5 |
-| weight_unit | VARCHAR(2) | lb or kg |
+| performed_reps | smallint | What was actually done. Empty until the set is done (the row is created when the session starts) |
+| performed_weight | DECIMAL(6,2) | What was actually lifted; allows fractional weights, e.g. 22.5. Empty until the set is done |
+| weight_unit | VARCHAR(2) | lb or kg; empty for bodyweight exercises |
 | rpe | DECIMAL(3,1) | Rate of perceived exertion, 1-10 scale (half steps allowed, e.g. 8.5) |
 | target_rest | smallint | Optional; copied from planned_set when the session comes from a program, in seconds |
 | rest | smallint | Rest actually taken after this set, in seconds |
@@ -223,9 +227,20 @@ Other differences to handle when moving to PostgreSQL:
 | Column | Type | Notes |
 |---|---|---|
 | id | UUID | Primary key |
-| name | VARCHAR(255) | e.g. squat |
+| name | VARCHAR(255) | e.g. squat. Names don't include equipment ("Single-Arm Row", not "Single-Arm Dumbbell Row") |
 | region | VARCHAR(255) | e.g. lower body |
+| default_equipment_id | UUID | Foreign key -> equipment (required; "Bodyweight" when none); used to prefill equipment when the exercise is added to a program day or session |
 
+### equipment
+--| A piece or type of equipment, e.g. barbell, dumbbell, kettlebell
+
+--| Lookup table so equipment is chosen from a fixed list and can be reported on consistently.
+--| v1 is a list seeded by us; letting users add their own equipment can come later without a schema change.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID | Primary key |
+| name | VARCHAR(50) | e.g. barbell. Required, unique, and case-insensitive. Includes a "Bodyweight" row |
 
 ### exercise_to_muscle
 --| Junction table: one exercise works many muscles, and one muscle is worked by many exercises.
@@ -276,9 +291,15 @@ Other differences to handle when moving to PostgreSQL:
 - **Lengths and types are not enforced in SQLite.** SQLite's `ALTER TABLE` can't change an existing column or constraint; any change means rebuilding the table and copying the data over. To keep the schema easy to change, lengths and types are validated in the API instead, and `STRICT` tables aren't used. Structural rules (`NOT NULL`, `UNIQUE`, foreign keys) are still enforced in the database.
 - **Units without a value are allowed.** A user can pick a unit for height or weight without entering a value (e.g. a preferred unit). If a value is entered, a unit is required. This is validated in the API, not the database: the API is the only writer of `users`, and a missing unit is incomplete data rather than something that breaks other tables.
 - **Deletes are explicit; no foreign key cascades.** Every foreign key uses the default action, so the database blocks any delete that would leave orphaned rows. The API removes child rows itself, in order, inside one transaction (e.g. deleting an unlogged program day: its planned sets, then its program day exercises, then the day). This keeps every delete deliberate and avoids one delete silently removing data several tables down. It also covers REP-12: removing an exercise from a program day deletes its planned sets first. Deleting a user account follows the same rule: the API deletes all of that user's data (sets and sessions, the full program chain, body metrics), then the user, in one transaction. A cascade from `users` alone wouldn't work anyway: it would stop at the first program that still has days.
+- **Equipment lives on the exercise-within-session (and its plan mirror), not on each set.** Equipment rarely changes between sets of the same exercise, so storing it per set would repeat the same value; it does change between sessions (barbell squats one day, goblet squats another). Same reasoning as `is_pt`. The plan side holds it too, and it's copied into the log when a session starts, like targets.
+- **Equipment is a lookup table, not free text.** Reporting by equipment needs consistent values; free text would split "Dumbbell", "dumbbells", and "DB" into three groups.
+- **Each exercise has a default equipment, stored on `exercises`.** The API uses it to prefill equipment. It can't live on `exercise_to_muscle`: an exercise has one row per muscle there, so the default would be stored several times and could disagree.
+- **Equipment is always required; bodyweight is its own equipment row.** All equipment columns are NOT NULL, and bodyweight exercises point to a "Bodyweight" row. Letting NULL mean bodyweight would be ambiguous (bodyweight, or never chosen, or an API bug), would drop bodyweight exercises from inner joins to `equipment`, and would need special handling in every report and screen. One seed row avoids all of that, and variants like a weighted vest are just more rows.
+- **Exercise names don't include equipment.** With equipment in its own column, a name like "Barbell Row" would store the equipment twice and could contradict the chosen equipment (e.g. "Barbell Row" logged with dumbbells).
 - **Rest is stored as whole seconds.** Rest is a duration, not a time of day: SQLite has no time type, and PostgreSQL's `time` means a time of day. Seconds are easy to total and average, and the app formats them for display (90 → 1:30).
 - **Table is named `users`, not `user`.** `USER` is a reserved word in standard SQL and PostgreSQL, so `user` would need quoting in every query after a move to PostgreSQL.
 
 ## Open questions
 
 - **Percent of one-rep max (1RM):** worth tracking, for example to plan sets at 70% of 1RM. Where it lives is undecided.
+- **`exercises.region` vs. muscle regions:** an exercise's regions can be derived from its muscles (`exercise_to_muscle` → `muscles.region`), which also handles exercises that span regions (e.g. hinge movements). Is `exercises.region` still needed, or is it a second copy of the same fact?
